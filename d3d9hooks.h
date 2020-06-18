@@ -358,6 +358,6 @@ struct Direct3DDevice9_FnPtrs {
 };
 
 extern HRESULT InstallD3D9Hooks(const Direct3DDevice9_FnPtrs* pHooks, const Direct3DDevice9_FnPtrs** ppOrig);
-extern HRESULT UninstallD3D9Hooks(const Direct3DDevice9_FnPtrs* pHooks);
+extern HRESULT UninstallD3D9Hooks();
 
 #endif

@@ -125,19 +125,22 @@ const unsigned int cScriptModule::sm_ScriptsArraySize = sizeof(sm_ScriptsArray)/
 
 /*** Direct3D9 hooks ***/
 
-// Direct3DDevice9_FnPtrs *g_pOrig = NULL;
-//
-// DIRECT3DDEVICE9_PRESENT_FN(Hooked_Present) {
-//     printf("Present\n");
-//     g_pOrig->Present(thisDevice, pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
-// }
+const Direct3DDevice9_FnPtrs *g_pOrig = NULL;
+
+DIRECT3DDEVICE9_PRESENT_FN(Hooked_Present) {
+    printf("Present\n");
+    return g_pOrig->Present(thisDevice, pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
+}
 
 /*** Entry point ***/
+
+#define USE_CONSOLE 1
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
 {
     switch (reason) {
     case DLL_PROCESS_ATTACH: {
+#if USE_CONSOLE
         // Allocate a console for handy viewing.
         AllocConsole();
         freopen("CONOUT$", "w", stdout);
@@ -152,24 +155,25 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
         int width = (int)(rect.right - rect.left);
         int height = (int)(rect.bottom - rect.top);
         MoveWindow(hwnd, left, top, width, height, TRUE);
+#endif //USE_CONSOLE
 
-        // Now that we (hopefully) have somewhere for output to go,
-        // we can print some useful messages.
         printf("d3d9demo: DLL_PROCESS_ATTACH\n");
         printf("d3d9demo: EXE Base address: 0x%08x\n", (unsigned int)GetModuleHandle(NULL));
         printf("d3d9demo: DLL base address: 0x%08x\n", (unsigned int)hModule);
 
-        // Direct3DDevice9_FnPtrs hooks = {};
-        // hooks.Present = Hooked_Present;
-        // HRESULT result = InstallD3D9Hooks(&hooks, &g_pOrig);
-        // printf("d3d9demo: InstallD3D9Hooks: %d\n", result);
+        Direct3DDevice9_FnPtrs hooks = {};
+        hooks.Present = Hooked_Present;
+        HRESULT result = InstallD3D9Hooks(&hooks, &g_pOrig);
+        printf("d3d9demo: InstallD3D9Hooks: %ld\n", result);
     } break;
     case DLL_PROCESS_DETACH: {
-        // HRESULT result = UninstallD3D9Hooks();
-        // printf("d3d9demo: UninstallD3D9Hooks: %d\n", result);
-        // g_pOrig = {};
+        HRESULT result = UninstallD3D9Hooks();
+        printf("d3d9demo: UninstallD3D9Hooks: %ld\n", result);
+        g_pOrig = NULL;
 
+#if USE_CONSOLE
         FreeConsole();
+#endif //USE_CONSOLE
     } break;
     }
     return true;

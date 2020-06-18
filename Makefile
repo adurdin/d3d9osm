@@ -22,7 +22,7 @@
 ##
 ###############################################################################
 
-.PHONY: all clean
+.PHONY: all install clean
 
 .SUFFIXES:
 .SUFFIXES: .o .cpp .rc 
@@ -33,11 +33,13 @@ srcdir = .
 GAME = 2
 
 LGDIR = liblg
+INSTALLDIR = e:\\dev\\T2_d3d9hooks
 
 CC = gcc
 CXX = g++
 AR = ar
 DLLWRAP = dllwrap
+CP = cp
 
 DEFINES = -DWINVER=0x0500 -D_WIN32_WINNT=0x0500 -DWIN32_LEAN_AND_MEAN -D_DARKGAME=$(GAME)
 
@@ -86,4 +88,4 @@ clean:
 	$(MAKE) -C $(LGDIR) clean
 
 install: d3d9demo.osm
-	$(CP) d3d9demo.osm "$(INSTALLDIR)" && echo Installed.
+	$(CP) d3d9demo.osm "$(INSTALLDIR)\\d3d9demo.osm" && echo Installed.
