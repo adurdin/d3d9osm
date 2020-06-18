@@ -56,7 +56,7 @@ endif
 ARFLAGS = rc
 LDFLAGS = -mwindows -mdll -Wl,--enable-auto-image-base 
 LIBDIRS = -L$(LGDIR) 
-LIBS = -l$(LGLIB) -luuid -lstdc++
+LIBS = -l$(LGLIB) -luuid -lstdc++ -ld3d9
 INCLUDES = -I$(LGDIR)
 # If you care for this... # -Wno-unused-variable 
 # A lot of the callbacks have unused parameters, so I turn that off.
@@ -65,7 +65,7 @@ CXXFLAGS =  -W -Wall -Wno-unused-parameter \
 		-fno-pcc-struct-return -mms-bitfields
 DLLFLAGS =  --target i386-mingw32
 
-all: empty.osm echo.osm demo.osm
+all: d3d9demo.osm
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(CXXDEBUG) $(DEFINES) $(INCLUDES) -o $@ -c $<
@@ -73,9 +73,17 @@ all: empty.osm echo.osm demo.osm
 %.osm: %.o ScriptModule.o Script.o $(LGDIR)/lib$(LGLIB).a
 	$(DLLWRAP) $(DLLFLAGS) --def script.def -o $@ $< ScriptModule.o Script.o $(LDFLAGS) $(LDDEBUG) $(LIBDIRS) $(LIBS)
 
+d3d9demo.o: d3d9hooks.h
+
+d3d9demo.osm: d3d9demo.o d3d9hooks.o ScriptModule.o Script.o $(LGDIR)/lib$(LGLIB).a
+	$(DLLWRAP) $(DLLFLAGS) --def script.def -o $@ $^ $(LDFLAGS) $(LDDEBUG) $(LIBDIRS) $(LIBS)
+
 $(LGDIR)/lib$(LGLIB).a:
 	$(MAKE) -C $(LGDIR)
 
 clean:
 	$(RM) *.o *.osm
 	$(MAKE) -C $(LGDIR) clean
+
+install: d3d9demo.osm
+	$(CP) d3d9demo.osm "$(INSTALLDIR)" && echo Installed.
