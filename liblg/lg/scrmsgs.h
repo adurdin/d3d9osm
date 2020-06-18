@@ -151,7 +151,8 @@ struct sSimMsg : sScrMsg
 // "DarkGameModeChange"
 struct sDarkGameModeScrMsg : sScrMsg
 {
-	BOOL fEntering;
+	BOOL fResuming;
+	BOOL fSuspending;
 
 	virtual const char* __thiscall GetName() const { return "sDarkGameModeScrMsg"; }
 };
