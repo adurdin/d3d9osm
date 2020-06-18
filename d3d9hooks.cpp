@@ -4,9 +4,9 @@
 #define DIRECT3DDEVICE9_FN_START 3
 #define DIRECT3DDEVICE9_FN_COUNT 116
 
-Direct3DDevice9_FnPtrs g_pOrig = {};
-Direct3DDevice9_FnPtrs g_pHooks = {};
-DWORD *g_vtable = NULL;
+static Direct3DDevice9_FnPtrs g_Orig = {};
+static Direct3DDevice9_FnPtrs g_Hooks = {};
+static DWORD *g_vtable = NULL;
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -70,10 +70,10 @@ HRESULT InstallD3D9Hooks(const Direct3DDevice9_FnPtrs* pHooks, const Direct3DDev
         }
     }
 
-    g_pOrig = orig;
-    g_pHooks = *pHooks;
+    g_Orig = orig;
+    g_Hooks = *pHooks;
     g_vtable = vtable;
-    *ppOrig = &g_pOrig;
+    *ppOrig = &g_Orig;
 
     return S_OK;
 }
@@ -85,16 +85,16 @@ HRESULT UninstallD3D9Hooks()
     DWORD* vtable = g_vtable;
     if (! vtable) return E_UNEXPECTED;
 
-    DWORD* origAddr = (DWORD*)&g_pOrig;
-    DWORD* hookAddr = (DWORD*)&g_pHooks;
+    DWORD* origAddr = (DWORD*)&g_Orig;
+    DWORD* hookAddr = (DWORD*)&g_Hooks;
     for (int i=0; i<DIRECT3DDEVICE9_FN_COUNT; ++i) {
         if (hookAddr[i]) {
             vtable[i+DIRECT3DDEVICE9_FN_START] = origAddr[i];
         }
     }
 
-    g_pOrig = {};
-    g_pHooks = {};
+    g_Orig = {};
+    g_Hooks = {};
     g_vtable = NULL;
 
     return S_OK;
