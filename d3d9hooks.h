@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef DIRECT3D_VERSION
+#error "You must #include <d3d9.h> before \"d3dhooks.h\""
+#else
+
 #define DIRECT3DDEVICE9_TESTCOOPERATIVELEVEL_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* thisDevice)
 #define DIRECT3DDEVICE9_GETAVAILABLETEXTUREMEM_FN(NAME) UINT __stdcall (NAME)(IDirect3DDevice9* thisDevice)
 #define DIRECT3DDEVICE9_EVICTMANAGEDRESOURCES_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* thisDevice)
@@ -355,3 +359,5 @@ struct Direct3DDevice9_FnPtrs {
 
 extern HRESULT InstallD3D9Hooks(const Direct3DDevice9_FnPtrs* pHooks, const Direct3DDevice9_FnPtrs** ppOrig);
 extern HRESULT UninstallD3D9Hooks(const Direct3DDevice9_FnPtrs* pHooks);
+
+#endif

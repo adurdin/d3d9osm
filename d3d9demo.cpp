@@ -34,7 +34,8 @@
 #include <stdio.h>
 #include <windows.h>
 
-//#include "d3d9hooks.h"
+#include <d3d9.h>
+#include "d3d9hooks.h"
 
 using namespace std;
 
