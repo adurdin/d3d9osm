@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <d3d9.h>
 #include "d3d9hooks.h"
 
@@ -8,44 +9,45 @@ static Direct3DDevice9_FnPtrs g_Orig = {};
 static Direct3DDevice9_FnPtrs g_Hooks = {};
 static DWORD *g_vtable = NULL;
 
-static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+DWORD* get_Direct3DDevice9_vtable()
 {
-    return 0;
-}
-
-static DWORD* get_Direct3DDevice9_vtable()
-{
+    printf("get_Direct3DDevice9_vtable... ");
     DWORD* vtable = NULL;
-    HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(0);
-
+    HINSTANCE hInstance = GetModuleHandle(0);
     IDirect3D9* direct3D = Direct3DCreate9(D3D_SDK_VERSION);
     if (direct3D) {
         const char *wndClassName = "D3D9HOOKS";
         WNDCLASSEXA wndClass = {
-            sizeof(WNDCLASSEXA), CS_HREDRAW|CS_VREDRAW, WindowProc, 0, 0,
+            sizeof(WNDCLASSEXA), CS_HREDRAW|CS_VREDRAW, DefWindowProc, 0, 0,
             hInstance, NULL, NULL, NULL, NULL, wndClassName, NULL,
         };
         if (RegisterClassExA(&wndClass)) {
-            HWND hWnd = CreateWindowExA(WS_EX_NOACTIVATE, wndClassName, "d3d9hooks",
-                WS_DISABLED, 0, 0, 100, 100, NULL, NULL, hInstance, NULL);
+            HWND hWnd = CreateWindowExA(0, wndClassName, "d3d9hooks",
+                WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, NULL, NULL, hInstance, NULL);
             if (hWnd) {
                 D3DPRESENT_PARAMETERS presentParams = {
                     0, 0, D3DFMT_UNKNOWN, 1, D3DMULTISAMPLE_NONE, 0, D3DSWAPEFFECT_COPY,
-                    hWnd, TRUE, FALSE, D3DFMT_UNKNOWN, 0, 0, D3DPRESENT_INTERVAL_DEFAULT,
+                    NULL, TRUE, FALSE, D3DFMT_UNKNOWN, 0, 0, D3DPRESENT_INTERVAL_DEFAULT,
                 };
                 IDirect3DDevice9* device = NULL;
                 HRESULT result = direct3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd,
                     D3DCREATE_SOFTWARE_VERTEXPROCESSING, &presentParams, &device);
                 if (result == D3D_OK) {
                     vtable = *(DWORD **)device;
+                    printf("vtable is at %08x", (unsigned int)vtable);
                     device->Release();
+                } else {
+                    printf("CreateDevice failed (%lu).", result & 0xFFFFUL);
                 }
                 DestroyWindow(hWnd);
             }
             UnregisterClassA(wndClassName, hInstance);
         }
         direct3D->Release();
+    } else {
+        printf("Direct3DCreate9 failed.");
     }
+    printf("\n");
     return vtable;
 }
 
