@@ -360,4 +360,11 @@ struct Direct3DDevice9_FnPtrs {
 extern HRESULT InstallD3D9Hooks(const Direct3DDevice9_FnPtrs* pHooks, const Direct3DDevice9_FnPtrs** ppOrig);
 extern HRESULT UninstallD3D9Hooks();
 
+enum FindDirect3DDevice9Vtable_Strategy {
+    FindDirect3DDevice9Vtable_CreateDevice = 0,
+    FindDirect3DDevice9Vtable_IndirectPointer = 1,
+    FindDirect3DDevice9Vtable_DirectPointer = 2,
+};
+extern DWORD* FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_Strategy);
+
 #endif

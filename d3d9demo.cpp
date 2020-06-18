@@ -39,6 +39,33 @@
 
 using namespace std;
 
+/*** Direct3D9 hooks ***/
+
+const Direct3DDevice9_FnPtrs *g_pOrig = NULL;
+
+DIRECT3DDEVICE9_ENDSCENE_FN(Hooked_EndScene) {
+    printf("EndScene\n");
+    return g_pOrig->EndScene(thisDevice);
+}
+
+#define ACTIVATE_HOOKS_AT 2 // 0: DLL attach, 1: OnSim, 2: OnDarkGameModeChange
+
+void ActivateHooks(bool activate)
+{
+    printf("%s\n", activate ? "ACTIVATING HOOKS" : "DEACTIVATING HOOKS");
+    // FIXME: actually allow hooks to be activated?
+    return;
+    if (activate) {
+        Direct3DDevice9_FnPtrs hooks = {};
+        hooks.EndScene = Hooked_EndScene;
+        HRESULT result = InstallD3D9Hooks(&hooks, &g_pOrig);
+        printf("d3d9demo: InstallD3D9Hooks: %ld\n", result);
+    } else {
+        HRESULT result = UninstallD3D9Hooks();
+        printf("d3d9demo: UninstallD3D9Hooks: %ld\n", result);
+        g_pOrig = NULL;
+    }
+}
 
 /*** Script class declarations (this will usually be in a header file) ***/
 
@@ -73,6 +100,8 @@ long cScr_Echo::ReceiveMessage(sScrMsg* pMsg, sMultiParm* pReply, eScrTraceActio
         sOutput += static_cast<const char*>(pMsg->data2);
         sOutput += ")";
 
+        printf("%s\n", sOutput.c_str());
+
         int iTime = -1001;
         IPropertySrv* pProps = static_cast<IPropertySrv*>(g_pScriptManager->GetService(IID_IPropertyScriptService));
         if (pProps)
@@ -95,6 +124,40 @@ long cScr_Echo::ReceiveMessage(sScrMsg* pMsg, sMultiParm* pReply, eScrTraceActio
             pUI->TextMessage(sOutput.c_str(), 0, iTime);
             pUI->Release();
         }
+
+    // OKAY! So. The _direct_ way of finding the device pointer doesn't work at BeginScript or Sim,
+    // it's still null then. It does work after the first DarkGameModeChange, however. Hmm....
+    if (strcasecmp(pMsg->message, "BeginScript") == 0) {
+        printf("==== BeginScript: ====\n");
+    } else if (strcasecmp(pMsg->message, "Sim") == 0) {
+        bool fStarting = ((sSimMsg*)pMsg)->fStarting;
+        printf("==== Sim (fStarting=%s): ====\n", fStarting ? "true" : "false");
+#if ACTIVATE_HOOKS_AT == 1
+        // ActivateHooks(fStarting);
+#endif
+    } else if (strcasecmp(pMsg->message, "DarkGameModeChange") == 0) {
+        bool fSuspending = ((sDarkGameModeScrMsg*)pMsg)->fSuspending;
+        bool fResuming = ((sDarkGameModeScrMsg*)pMsg)->fResuming;
+        printf("==== DarkGameModeChange (fSuspending=%s,fResuming=%s): ====\n",
+            fSuspending ? "true" : "false",
+            fResuming ? "true" : "false");
+#if ACTIVATE_HOOKS_AT == 2
+        /// PROBLEM: on _start_, both resuming and suspending are false.
+        /// AND: on _end_, both... yep, you guess it!
+        // if (fResuming) {
+        //     ActivateHooks(true);
+        // } else if (fSuspending) {
+        //     ActivateHooks(false);
+        // }
+#endif
+    }
+    printf("STRATEGY: CreateDevice\n");
+    FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_CreateDevice);
+    printf("STRATEGY: IndirectPointer\n");
+    FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_IndirectPointer);
+    printf("STRATEGY: DirectPointer\n");
+    FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_DirectPointer);
+
     }
     catch (exception& err)
     {
@@ -122,15 +185,6 @@ const sScrClassDesc cScriptModule::sm_ScriptsArray[] = {
     { "echo", "Echo", "CustomScript", cScr_Echo::ScriptFactory },
 };
 const unsigned int cScriptModule::sm_ScriptsArraySize = sizeof(sm_ScriptsArray)/sizeof(sm_ScriptsArray[0]);
-
-/*** Direct3D9 hooks ***/
-
-const Direct3DDevice9_FnPtrs *g_pOrig = NULL;
-
-DIRECT3DDEVICE9_PRESENT_FN(Hooked_Present) {
-    printf("Present\n");
-    return g_pOrig->Present(thisDevice, pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
-}
 
 /*** Entry point ***/
 
@@ -160,16 +214,22 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
         printf("d3d9demo: DLL_PROCESS_ATTACH\n");
         printf("d3d9demo: EXE Base address: 0x%08x\n", (unsigned int)GetModuleHandle(NULL));
         printf("d3d9demo: DLL base address: 0x%08x\n", (unsigned int)hModule);
+        printf("\n");
+        printf("STRATEGY: CreateDevice\n");
+        FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_CreateDevice);
+        printf("STRATEGY: IndirectPointer\n");
+        FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_IndirectPointer);
+        printf("STRATEGY: DirectPointer\n");
+        FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_DirectPointer);
 
-        Direct3DDevice9_FnPtrs hooks = {};
-        hooks.Present = Hooked_Present;
-        HRESULT result = InstallD3D9Hooks(&hooks, &g_pOrig);
-        printf("d3d9demo: InstallD3D9Hooks: %ld\n", result);
+#if ACTIVATE_HOOKS_AT == 0
+        ActivateHooks(true);
+#endif
     } break;
     case DLL_PROCESS_DETACH: {
-        HRESULT result = UninstallD3D9Hooks();
-        printf("d3d9demo: UninstallD3D9Hooks: %ld\n", result);
-        g_pOrig = NULL;
+#if ACTIVATE_HOOKS_AT == 0
+        ActivateHooks(false);
+#endif
 
 #if USE_CONSOLE
         FreeConsole();
