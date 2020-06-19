@@ -2,141 +2,104 @@
 #include <d3d9.h>
 #include "d3d9hooks.h"
 
-#define DIRECT3DDEVICE9_FN_START 3
-#define DIRECT3DDEVICE9_FN_COUNT 116
-
-static Direct3DDevice9_FnPtrs g_Orig = {};
-static Direct3DDevice9_FnPtrs g_Hooks = {};
-static DWORD *g_vtable = NULL;
-
-DWORD* FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_Strategy strategy)
+IDirect3DDevice9* Dark_FindDirect3DDevice9Ptr()
 {
-    printf("FindDirect3DDevice9Vtable (strategy %d)...\n", strategy);
-
-    switch (strategy) {
-    case 0: {
-        DWORD* vtable = NULL;
-        HINSTANCE hInstance = GetModuleHandle(0);
-        IDirect3D9* direct3D = Direct3DCreate9(D3D_SDK_VERSION);
-        if (direct3D) {
-            const char *wndClassName = "D3D9HOOKS";
-            WNDCLASSEXA wndClass = {
-                sizeof(WNDCLASSEXA), CS_HREDRAW|CS_VREDRAW, DefWindowProc, 0, 0,
-                hInstance, NULL, NULL, NULL, NULL, wndClassName, NULL,
-            };
-            if (RegisterClassExA(&wndClass)) {
-                HWND hWnd = CreateWindowExA(0, wndClassName, "d3d9hooks",
-                    WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, NULL, NULL, hInstance, NULL);
-                if (hWnd) {
-                    D3DPRESENT_PARAMETERS presentParams = {
-                        0, 0, D3DFMT_UNKNOWN, 1, D3DMULTISAMPLE_NONE, 0, D3DSWAPEFFECT_COPY,
-                        NULL, TRUE, FALSE, D3DFMT_UNKNOWN, 0, 0, D3DPRESENT_INTERVAL_DEFAULT,
-                    };
-                    IDirect3DDevice9* device = NULL;
-                    HRESULT result = direct3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd,
-                        D3DCREATE_SOFTWARE_VERTEXPROCESSING, &presentParams, &device);
-                    if (result == D3D_OK) {
-                        vtable = *(DWORD **)device;
-                        printf("  device: %08x\n", (unsigned int)device);
-                        printf("  vtable is at %08x\n", (unsigned int)vtable);
-                        if (vtable) {
-                            printf("  Clear == %08x\n", (unsigned int)vtable[43]);
-                        }
-                        device->Release();
-                    } else {
-                        printf("  CreateDevice failed (%lu).\n", result & 0xFFFFUL);
-                    }
-                    DestroyWindow(hWnd);
-                }
-                UnregisterClassA(wndClassName, hInstance);
-            }
-            direct3D->Release();
-        } else {
-            printf("  Direct3DCreate9 failed.\n");
-        }
-        return vtable;
-    } break;
-    case 1: {
-        DWORD* vtable = NULL;
-        DWORD pRenderer = 0x005d9d88UL + (DWORD)GetModuleHandle(0);
-        DWORD ofsDevice = 15;
-        IDirect3DDevice9** pDevice = (IDirect3DDevice9**)(*((DWORD**)pRenderer) + ofsDevice);
-        IDirect3DDevice9* device = (pDevice ? *pDevice : NULL);
-        printf("  device: %08x\n", (unsigned int)device);
-        if (device) {
-            vtable = *(DWORD **)device;
-            printf("  vtable is at %08x\n", (unsigned int)vtable);
-            if (vtable) {
-                printf("  Clear == %08x\n", (unsigned int)vtable[43]);
-            }
-        }
-        return vtable;
-    } break;
-    case 2: {
-        DWORD* vtable = NULL;
-        DWORD pDevice = 0x005d915cUL + (DWORD)GetModuleHandle(0);
-        IDirect3DDevice9* device = *(IDirect3DDevice9**)pDevice;
-        printf("  device: %08x\n", (unsigned int)device);
-        if (device) {
-            vtable = *(DWORD **)device;
-            printf("  vtable is at %08x\n", (unsigned int)vtable);
-            if (vtable) {
-                printf("  Clear == %08x\n", (unsigned int)vtable[43]);
-            }
-        }
-        return vtable;
-    } break;
-    }
-    return NULL;
+    // FIXME: this is hardcoding T2v127 offsets, and then
+    // not checking them at all! It really should do some
+    // sanity checking...
+    DWORD addrRenderer = 0x005d9d88UL + (DWORD)GetModuleHandle(0);
+    DWORD ofsDevice = 15;
+    IDirect3DDevice9** pDevice = (IDirect3DDevice9**)(*((DWORD**)addrRenderer) + ofsDevice);
+    IDirect3DDevice9* device = (pDevice ? *pDevice : NULL);
+    return device;
 }
 
-HRESULT InstallD3D9Hooks(const Direct3DDevice9_FnPtrs* pHooks, const Direct3DDevice9_FnPtrs** ppOrig)
+/** We only support hooking one device at any time (so I don't ever have to malloc).
+   
+    g_HookedDevice: The hooked device; NULL if no device is hooked.
+    g_pOrig: Pointer to the original vtable; NULL if no device is hooked.
+    g_Hooks: Replacement vtable with pointers to hooked and/or original functions.
+*/
+static IDirect3DDevice9* g_HookedDevice = NULL;
+static Direct3DDevice9_Vtable const * g_pOrig = NULL;
+static Direct3DDevice9_Vtable g_Hooks = {};
+
+HRESULT HookDirect3DDevice9(IDirect3DDevice9* device, Direct3DDevice9_Vtable const * pHooks, Direct3DDevice9_Vtable const ** ppOrig)
 {
-    if (! pHooks || ! ppOrig) return E_INVALIDARG;
-    if (g_vtable) return E_ABORT;
+// Hook the given device with the functions in pHooks, and return a pointer to the original vtable
+// in ppOrig for hooks to call through to the original functions.
 
-    DWORD* vtable = FindDirect3DDevice9Vtable(FindDirect3DDevice9Vtable_IndirectPointer);
-    if (! vtable) return E_UNEXPECTED;
+// For any functions you do not want to hook, put NULL in the corresponding entry in pHooks; the
+// hooked device will use the original function pointer for that entry.
 
-    Direct3DDevice9_FnPtrs orig = {};
-    DWORD* origAddr = (DWORD*)&orig;
-    for (int i=0; i<DIRECT3DDEVICE9_FN_COUNT; ++i) {
-        origAddr[i] = vtable[i+DIRECT3DDEVICE9_FN_START];
-    }
-    DWORD* hookAddr = (DWORD*)pHooks;
-    for (int i=0; i<DIRECT3DDEVICE9_FN_COUNT; ++i) {
-        DWORD addr = hookAddr[i];
-        if (addr) {
-            vtable[i+DIRECT3DDEVICE9_FN_START] = addr;
+// If pHooks is NULL then the device will still be hooked, but will only have original functions;
+// you can use SetHookedDirect3DDevice9Fn() to then hook and unhook functions individually.
+
+// The pHooks pointer is not retained, so may safely point to a stack variable.
+
+// ppOrig must not be NULL, and all your hooks should use it to call any functions on this device;
+// you should not call This->Whatever(...) directly; instead call ppOrig->Whatever(This, ...).
+
+// On success, HookDirect3DDevice9() will return S_OK.
+
+// Only one device may be hooked at any given time; if you try to hook a second device before
+// unhooking the first, HookDirect3DDevice9() will return E_FAIL.
+
+// No guarantees whatsoever are made concerning thread safety.
+
+    if (! device) return E_INVALIDARG;
+    if (! ppOrig) return E_INVALIDARG;
+    if (g_HookedDevice) return E_FAIL;
+
+    g_HookedDevice = device;
+    g_Hooks = *pHooks;
+    g_pOrig = *ppOrig = *(Direct3DDevice9_Vtable const **)device;
+    printf("device: %p\n", device);
+    printf("g_pOrig: %p\n", g_pOrig);
+    void** hookPtrs = (void**)&g_Hooks;
+    void** origPtrs = (void**)g_pOrig;
+    for (int i=0; i<Direct3DDevice9_FnIndex_Count; ++i) {
+        if (! hookPtrs[i]) {
+            hookPtrs[i] = origPtrs[i];
+            printf("%d: %p\n", i, hookPtrs[i]);
+        } else {
+            printf("%d: %p (HOOKED)\n", i, hookPtrs[i]);
         }
     }
-
-    g_Orig = orig;
-    g_Hooks = *pHooks;
-    g_vtable = vtable;
-    *ppOrig = &g_Orig;
+    //*(Direct3DDevice9_Vtable const **)device = &g_Hooks;
 
     return S_OK;
 }
 
-HRESULT UninstallD3D9Hooks()
+HRESULT UnhookDirect3DDevice9(IDirect3DDevice9* device)
 {
-    if (! g_vtable) return E_ABORT;
+    if (! device) return E_INVALIDARG;
+    if (device != g_HookedDevice) return E_FAIL;
 
-    DWORD* vtable = g_vtable;
-    if (! vtable) return E_UNEXPECTED;
-
-    DWORD* origAddr = (DWORD*)&g_Orig;
-    DWORD* hookAddr = (DWORD*)&g_Hooks;
-    for (int i=0; i<DIRECT3DDEVICE9_FN_COUNT; ++i) {
-        if (hookAddr[i]) {
-            vtable[i+DIRECT3DDEVICE9_FN_START] = origAddr[i];
-        }
-    }
-
-    g_Orig = {};
+    //*(Direct3DDevice9_Vtable const **)device = g_pOrig;
+    g_HookedDevice = NULL;
+    g_pOrig = NULL;
     g_Hooks = {};
-    g_vtable = NULL;
+
+    return S_OK;
+}
+
+BOOL IsHookedDirect3DDevice9(IDirect3DDevice9* device)
+{
+    return (device == g_HookedDevice);
+}
+
+HRESULT SetHookedDirect3DDevice9Fn(IDirect3DDevice9* device, Direct3DDevice9_FnIndex index, void *fn)
+{
+    if (! device) return E_INVALIDARG;
+    if (! (index >= 0 && index < Direct3DDevice9_FnIndex_Count)) return E_INVALIDARG;
+    if (device != g_HookedDevice) return E_FAIL;
+
+    void** hookPtrs = (void**)&g_Hooks;
+    void** origPtrs = (void**)g_pOrig;
+    if (! fn) fn = origPtrs[index];
+
+    hookPtrs[index] = fn;
 
     return S_OK;
 }
