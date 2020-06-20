@@ -559,5 +559,6 @@ extern HRESULT SetHookedDirect3DDevice9Fn(IDirect3DDevice9* device, Direct3DDevi
     Dark_FindDirect3DDevice9Ptr will return NULL.
 */
 extern IDirect3DDevice9* Dark_FindDirect3DDevice9Ptr();
+extern IDirect3DDevice9* Dark_FindDirect3DDevice9Ptr_Direct();
 
 #endif
