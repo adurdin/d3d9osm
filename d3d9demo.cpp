@@ -39,6 +39,15 @@
 
 using namespace std;
 
+static void dump_device_ptrs(void)
+{
+    IDirect3DDevice9* device;
+    device = Dark_FindDirect3DDevice9Ptr();
+    printf("device: %p, vtable %p (indirect)\n", device, (device ? *(void**)device : NULL));
+    device = Dark_FindDirect3DDevice9Ptr_Direct();
+    printf("device: %p, vtable %p (direct)\n", device, (device ? *(void**)device : NULL));
+}
+
 /*** Direct3D9 hooks ***/
 
 const Direct3DDevice9_Vtable *g_pOrig = NULL;
@@ -58,18 +67,6 @@ DIRECT3DDEVICE9_ENDSCENE_FN(Hooked_EndScene) {
     return g_pOrig->EndScene(This);
 }
 
-IUNKNOWN_QUERYINTERFACE_FN(Hooked_QueryInterface) {
-    printf("QueryInterface(%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X)\n",
-        riid.Data1, (int)riid.Data2, (int)riid.Data3,
-        (int)riid.Data4[0], (int)riid.Data4[1], (int)riid.Data4[2], (int)riid.Data4[3],
-        (int)riid.Data4[4], (int)riid.Data4[5], (int)riid.Data4[6], (int)riid.Data4[7]);
-    void *pvObj = NULL;
-    HRESULT result = g_pOrig->QueryInterface(This, riid, &pvObj);
-    *ppvObj = pvObj;
-    printf("  returned %ld, -> %p\n", result, pvObj);
-    return result;
-}
-
 #define ACTIVATE_HOOKS_AT 0 // 0: DLL attach, 1: OnSim, 2: OnDarkGameModeChange
 
 void ActivateHooks(bool activate)
@@ -77,10 +74,9 @@ void ActivateHooks(bool activate)
     printf("%s\n", activate ? "ACTIVATING HOOKS" : "DEACTIVATING HOOKS");
 
     IDirect3DDevice9* device = Dark_FindDirect3DDevice9Ptr();
-    printf("d3d9demo: device is %p\n", device);
+    printf("d3d9demo: device is %p, vtable is %p\n", device, *(void**)device);
     if (activate) {
         Direct3DDevice9_Vtable hooks = {};
-        hooks.QueryInterface = Hooked_QueryInterface;
         hooks.Present = Hooked_Present;
         hooks.BeginScene = Hooked_BeginScene;
         hooks.EndScene = Hooked_EndScene;
@@ -155,13 +151,11 @@ long cScr_Echo::ReceiveMessage(sScrMsg* pMsg, sMultiParm* pReply, eScrTraceActio
     // it's still null then. It does work after the first DarkGameModeChange, however. Hmm....
     if (strcasecmp(pMsg->message, "BeginScript") == 0) {
         printf("==== BeginScript: ====\n");
-        printf("device: %p (indirect)\n", Dark_FindDirect3DDevice9Ptr());
-        printf("device: %p (direct)\n", Dark_FindDirect3DDevice9Ptr_Direct());
+        dump_device_ptrs();
     } else if (strcasecmp(pMsg->message, "Sim") == 0) {
         bool fStarting = ((sSimMsg*)pMsg)->fStarting;
         printf("==== Sim (fStarting=%s): ====\n", fStarting ? "true" : "false");
-        printf("device: %p (indirect)\n", Dark_FindDirect3DDevice9Ptr());
-        printf("device: %p (direct)\n", Dark_FindDirect3DDevice9Ptr_Direct());
+        dump_device_ptrs();
 #if ACTIVATE_HOOKS_AT == 1
         ActivateHooks(fStarting);
 #endif
@@ -171,8 +165,7 @@ long cScr_Echo::ReceiveMessage(sScrMsg* pMsg, sMultiParm* pReply, eScrTraceActio
         printf("==== DarkGameModeChange (fSuspending=%s,fResuming=%s): ====\n",
             fSuspending ? "true" : "false",
             fResuming ? "true" : "false");
-        printf("device: %p (indirect)\n", Dark_FindDirect3DDevice9Ptr());
-        printf("device: %p (direct)\n", Dark_FindDirect3DDevice9Ptr_Direct());
+        dump_device_ptrs();
 #if ACTIVATE_HOOKS_AT == 2
         /// PROBLEM: on _start_, both resuming and suspending are false.
         /// AND: on _end_, both... yep, you guess it!
@@ -241,8 +234,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
         printf("d3d9demo: DLL_PROCESS_ATTACH\n");
         printf("d3d9demo: EXE Base address: 0x%08x\n", (unsigned int)GetModuleHandle(NULL));
         printf("d3d9demo: DLL base address: 0x%08x\n", (unsigned int)hModule);
-        printf("device: %p (indirect)\n", Dark_FindDirect3DDevice9Ptr());
-        printf("device: %p (direct)\n", Dark_FindDirect3DDevice9Ptr_Direct());
+        dump_device_ptrs();
         printf("\n");
 #if ACTIVATE_HOOKS_AT == 0
         ActivateHooks(true);
