@@ -32,6 +32,7 @@
 #include <string>
 #include <strings.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <windows.h>
 
 #include <d3d9.h>
@@ -67,6 +68,46 @@ DIRECT3DDEVICE9_ENDSCENE_FN(Hooked_EndScene) {
     return g_pOrig->EndScene(This);
 }
 
+DIRECT3DDEVICE9_DRAWPRIMITIVE_FN(Hooked_DrawPrimitive)
+{
+    printf("Hooked_DrawPrimitive\n");
+    if (rand()<RAND_MAX/2) {
+        return g_pOrig->DrawPrimitive(This, PrimitiveType, StartVertex, PrimitiveCount);
+    } else {
+        return S_OK;
+    }
+}
+
+DIRECT3DDEVICE9_DRAWINDEXEDPRIMITIVE_FN(Hooked_DrawIndexedPrimitive)
+{
+    printf("Hooked_DrawIndexedPrimitive\n");
+    if (rand()<RAND_MAX/2) {
+        return g_pOrig->DrawIndexedPrimitive(This, PrimitiveType, BaseVertexIndex, MinVertexIndex, NumVertices, startIndex, primCount);
+    } else {
+        return S_OK;
+    }
+}
+
+DIRECT3DDEVICE9_DRAWPRIMITIVEUP_FN(Hooked_DrawPrimitiveUP)
+{
+    printf("Hooked_DrawPrimitiveUP\n");
+    if (rand()<RAND_MAX/2) {
+        return g_pOrig->DrawPrimitiveUP(This, PrimitiveType, PrimitiveCount, pVertexStreamZeroData, VertexStreamZeroStride);
+    } else {
+        return S_OK;
+    }
+}
+
+DIRECT3DDEVICE9_DRAWINDEXEDPRIMITIVEUP_FN(Hooked_DrawIndexedPrimitiveUP)
+{
+    printf("Hooked_DrawIndexedPrimitiveUP\n");
+    if (rand()<RAND_MAX/2) {
+        return g_pOrig->DrawIndexedPrimitiveUP(This, PrimitiveType, MinVertexIndex, NumVertices, PrimitiveCount, pIndexData, IndexDataFormat, pVertexStreamZeroData, VertexStreamZeroStride);
+    } else {
+        return S_OK;
+    }
+}
+
 #define ACTIVATE_HOOKS_AT 2 // 0: DLL attach, 1: OnSim, 2: OnDarkGameModeChange
 
 void ActivateHooks(bool activate)
@@ -80,6 +121,10 @@ void ActivateHooks(bool activate)
         hooks.Present = Hooked_Present;
         hooks.BeginScene = Hooked_BeginScene;
         hooks.EndScene = Hooked_EndScene;
+        hooks.DrawPrimitive = Hooked_DrawPrimitive;
+        hooks.DrawIndexedPrimitive = Hooked_DrawIndexedPrimitive;
+        hooks.DrawPrimitiveUP = Hooked_DrawPrimitiveUP;
+        hooks.DrawIndexedPrimitiveUP = Hooked_DrawIndexedPrimitiveUP;
         HRESULT result = HookDirect3DDevice9(device, &hooks, &g_pOrig);
         printf("d3d9demo: HookDirect3DDevice9 returned %ld\n", result);
     } else {
