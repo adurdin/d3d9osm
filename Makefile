@@ -22,7 +22,7 @@
 ##
 ###############################################################################
 
-.PHONY: all install clean
+.PHONY: all install run clean
 
 .SUFFIXES:
 .SUFFIXES: .o .cpp .rc 
@@ -34,6 +34,8 @@ GAME = 2
 
 LGDIR = liblg
 INSTALLDIR = e:\\dev\\T2_d3d9hooks
+RUNDIR = $(INSTALLDIR)
+RUN = $(RUNDIR)\\Thief2.exe
 
 CC = gcc
 CXX = g++
@@ -89,3 +91,6 @@ clean:
 
 install: d3d9demo.osm
 	$(CP) d3d9demo.osm "$(INSTALLDIR)\\d3d9demo.osm" && echo Installed.
+
+run: install
+	cd "$(RUNDIR)" && "$(RUN)"
