@@ -86,7 +86,7 @@
 #define DIRECT3DDEVICE9_SETNPATCHMODE_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* This, float nSegments)
 #define DIRECT3DDEVICE9_GETNPATCHMODE_FN(NAME) float __stdcall (NAME)(IDirect3DDevice9* This)
 #define DIRECT3DDEVICE9_DRAWPRIMITIVE_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* This, D3DPRIMITIVETYPE PrimitiveType,UINT StartVertex,UINT PrimitiveCount)
-#define DIRECT3DDEVICE9_DRAWINDEXEDPRIMITIVE_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* This, D3DPRIMITIVETYPE,INT BaseVertexIndex,UINT MinVertexIndex,UINT NumVertices,UINT startIndex,UINT primCount)
+#define DIRECT3DDEVICE9_DRAWINDEXEDPRIMITIVE_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* This, D3DPRIMITIVETYPE PrimitiveType,INT BaseVertexIndex,UINT MinVertexIndex,UINT NumVertices,UINT startIndex,UINT primCount)
 #define DIRECT3DDEVICE9_DRAWPRIMITIVEUP_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* This, D3DPRIMITIVETYPE PrimitiveType,UINT PrimitiveCount,CONST void* pVertexStreamZeroData,UINT VertexStreamZeroStride)
 #define DIRECT3DDEVICE9_DRAWINDEXEDPRIMITIVEUP_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* This, D3DPRIMITIVETYPE PrimitiveType,UINT MinVertexIndex,UINT NumVertices,UINT PrimitiveCount,CONST void* pIndexData,D3DFORMAT IndexDataFormat,CONST void* pVertexStreamZeroData,UINT VertexStreamZeroStride)
 #define DIRECT3DDEVICE9_PROCESSVERTICES_FN(NAME) HRESULT __stdcall (NAME)(IDirect3DDevice9* This, UINT SrcStartIndex,UINT DestIndex,UINT VertexCount,IDirect3DVertexBuffer9* pDestBuffer,IDirect3DVertexDeclaration9* pVertexDecl,DWORD Flags)
