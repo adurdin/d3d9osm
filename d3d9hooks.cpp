@@ -110,6 +110,37 @@ HRESULT UnhookDirect3DDevice9(IDirect3DDevice9* device)
     return S_OK;
 }
 
+HRESULT RehookDirect3DDevice9_Begin() {
+    if (! g_HookedDevice) return E_FAIL;
+
+    IDirect3DDevice9* device = g_HookedDevice;
+    log("Rehook, unhooking device: %p\n", device);
+    Direct3DDevice9_Vtable const *vtable = *(Direct3DDevice9_Vtable const **)device;
+    DWORD* origPtrs = (DWORD*)&g_Orig;
+    DWORD* vtablePtrs = (DWORD*)vtable;
+    for (int i=0; i<Direct3DDevice9_FnIndex_Count; ++i) {
+        vtablePtrs[i] = origPtrs[i];
+    }
+
+    return S_OK;
+}
+HRESULT RehookDirect3DDevice9_End() {
+    if (! g_HookedDevice) return E_FAIL;
+
+    IDirect3DDevice9* device = g_HookedDevice;
+    log("Rehook, hooking device: %p\n", device);
+    Direct3DDevice9_Vtable const *vtable = *(Direct3DDevice9_Vtable const **)device;
+    DWORD* hookPtrs = (DWORD*)&g_Hooks;
+    DWORD* vtablePtrs = (DWORD*)vtable;
+    for (int i=0; i<Direct3DDevice9_FnIndex_Count; ++i) {
+        if (hookPtrs[i]) {
+            vtablePtrs[i] = hookPtrs[i];
+        }
+    }
+
+    return S_OK;
+}
+
 BOOL IsHookedDirect3DDevice9(IDirect3DDevice9* device)
 {
     return (device == g_HookedDevice);

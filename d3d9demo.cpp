@@ -45,6 +45,14 @@ static void dump_device_ptrs(void)
     IDirect3DDevice9* device;
     device = Dark_FindDirect3DDevice9Ptr();
     printf("device: %p, vtable %p (indirect)\n", device, (device ? *(void**)device : NULL));
+    // if (device) {
+    //     Direct3DDevice9_Vtable const *vtable = *(Direct3DDevice9_Vtable const **)device;
+    //     DWORD* vtablePtrs = (DWORD*)vtable;
+    //     for (int i=0; i<Direct3DDevice9_FnIndex_Count; ++i) {
+    //         printf("%3d: %p%c", i, (void*)vtablePtrs[i], (i%4==3?'\n':'\t'));
+    //     }
+    //     printf("\n");
+    // }
     device = Dark_FindDirect3DDevice9Ptr_Direct();
     printf("device: %p, vtable %p (direct)\n", device, (device ? *(void**)device : NULL));
 }
@@ -68,9 +76,17 @@ DIRECT3DDEVICE9_ENDSCENE_FN(Hooked_EndScene) {
     return g_pOrig->EndScene(This);
 }
 
+DIRECT3DDEVICE9_BEGINSTATEBLOCK_FN(Hooked_BeginStateBlock) {
+    printf("BeginStateBlock\n");
+    // Unhook and rehook to work around the vtable getting rewritten :(
+    RehookDirect3DDevice9_Begin();
+    HRESULT result = g_pOrig->BeginStateBlock(This);
+    RehookDirect3DDevice9_End();
+    return result;
+}
+
 DIRECT3DDEVICE9_DRAWPRIMITIVE_FN(Hooked_DrawPrimitive)
 {
-    printf("Hooked_DrawPrimitive\n");
     if (rand()<RAND_MAX/2) {
         return g_pOrig->DrawPrimitive(This, PrimitiveType, StartVertex, PrimitiveCount);
     } else {
@@ -80,7 +96,6 @@ DIRECT3DDEVICE9_DRAWPRIMITIVE_FN(Hooked_DrawPrimitive)
 
 DIRECT3DDEVICE9_DRAWINDEXEDPRIMITIVE_FN(Hooked_DrawIndexedPrimitive)
 {
-    printf("Hooked_DrawIndexedPrimitive\n");
     if (rand()<RAND_MAX/2) {
         return g_pOrig->DrawIndexedPrimitive(This, PrimitiveType, BaseVertexIndex, MinVertexIndex, NumVertices, startIndex, primCount);
     } else {
@@ -90,7 +105,6 @@ DIRECT3DDEVICE9_DRAWINDEXEDPRIMITIVE_FN(Hooked_DrawIndexedPrimitive)
 
 DIRECT3DDEVICE9_DRAWPRIMITIVEUP_FN(Hooked_DrawPrimitiveUP)
 {
-    printf("Hooked_DrawPrimitiveUP\n");
     if (rand()<RAND_MAX/2) {
         return g_pOrig->DrawPrimitiveUP(This, PrimitiveType, PrimitiveCount, pVertexStreamZeroData, VertexStreamZeroStride);
     } else {
@@ -100,7 +114,6 @@ DIRECT3DDEVICE9_DRAWPRIMITIVEUP_FN(Hooked_DrawPrimitiveUP)
 
 DIRECT3DDEVICE9_DRAWINDEXEDPRIMITIVEUP_FN(Hooked_DrawIndexedPrimitiveUP)
 {
-    printf("Hooked_DrawIndexedPrimitiveUP\n");
     if (rand()<RAND_MAX/2) {
         return g_pOrig->DrawIndexedPrimitiveUP(This, PrimitiveType, MinVertexIndex, NumVertices, PrimitiveCount, pIndexData, IndexDataFormat, pVertexStreamZeroData, VertexStreamZeroStride);
     } else {
@@ -121,6 +134,7 @@ void ActivateHooks(bool activate)
         hooks.Present = Hooked_Present;
         hooks.BeginScene = Hooked_BeginScene;
         hooks.EndScene = Hooked_EndScene;
+        hooks.BeginStateBlock = Hooked_BeginStateBlock;
         hooks.DrawPrimitive = Hooked_DrawPrimitive;
         hooks.DrawIndexedPrimitive = Hooked_DrawIndexedPrimitive;
         hooks.DrawPrimitiveUP = Hooked_DrawPrimitiveUP;
@@ -287,6 +301,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
         printf("d3d9demo: DLL base address: 0x%08x\n", (unsigned int)hModule);
         dump_device_ptrs();
         printf("\n");
+
 #if ACTIVATE_HOOKS_AT == 0
         ActivateHooks(true);
 #endif

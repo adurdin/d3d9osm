@@ -551,6 +551,9 @@ extern BOOL IsHookedDirect3DDevice9(IDirect3DDevice9* device);
 */
 extern HRESULT SetHookedDirect3DDevice9Fn(IDirect3DDevice9* device, Direct3DDevice9_FnIndex index, void *fn);
 
+extern HRESULT RehookDirect3DDevice9_Begin();
+extern HRESULT RehookDirect3DDevice9_End();
+
 /** Dark_FindDirect3DDevice9Ptr():
 
     Return the Direct3D9 device used by the game.
