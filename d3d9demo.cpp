@@ -67,7 +67,7 @@ DIRECT3DDEVICE9_ENDSCENE_FN(Hooked_EndScene) {
     return g_pOrig->EndScene(This);
 }
 
-#define ACTIVATE_HOOKS_AT 0 // 0: DLL attach, 1: OnSim, 2: OnDarkGameModeChange
+#define ACTIVATE_HOOKS_AT 2 // 0: DLL attach, 1: OnSim, 2: OnDarkGameModeChange
 
 void ActivateHooks(bool activate)
 {
@@ -167,14 +167,20 @@ long cScr_Echo::ReceiveMessage(sScrMsg* pMsg, sMultiParm* pReply, eScrTraceActio
             fResuming ? "true" : "false");
         dump_device_ptrs();
 #if ACTIVATE_HOOKS_AT == 2
-        /// PROBLEM: on _start_, both resuming and suspending are false.
-        /// AND: on _end_, both... yep, you guess it!
-        // if (fResuming) {
-        //     ActivateHooks(true);
-        // } else if (fSuspending) {
-        //     ActivateHooks(false);
-        // }
-        printf("I don't know if we're coming or going tbh\n");
+        // When starting or ending the game, both fSuspending and
+        // fResuming are false; so we need to keep track of whether
+        // we hooked already or not.
+        static bool isHooked = false;
+        if (fSuspending) {
+            if (isHooked) ActivateHooks(false);
+            isHooked = false;
+        } else if (fResuming) {
+            if (!isHooked) ActivateHooks(true);
+            isHooked = true;
+        } else {
+            ActivateHooks(!isHooked);
+            isHooked = !isHooked;
+        }
 #endif
     }
 
